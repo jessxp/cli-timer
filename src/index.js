@@ -14,6 +14,7 @@ const DEFAULT_FONT = "Standard";
 const TIMER_SAMPLE_TEXT = "01:23:45";
 const MIN_FIGLET_WIDTH = 120;
 const PACKAGE_NAME = "bash-timer";
+const MODE_TITLES = Object.freeze({ timer: "Timer", stopwatch: "Stopwatch", clock: "Clock" });
 const PRINTABLE_ASCII_CANDIDATES = Object.freeze(
   Array.from({ length: 94 }, (_, index) => String.fromCharCode(33 + index))
 );
@@ -577,11 +578,14 @@ function keyTokenToLabel(token) {
   return token;
 }
 
-function controlsHelpLine(keybindings) {
-  const pause = `${keyTokenToLabel(keybindings.pauseKey)}/${keyTokenToLabel(keybindings.pauseAltKey)}`;
-  const restart = keyTokenToLabel(keybindings.restartKey);
+function controlsHelpLine(keybindings, mode) {
   const font = keyTokenToLabel(keybindings.fontKey);
   const exit = `${keyTokenToLabel(keybindings.exitKey)}/${keyTokenToLabel(keybindings.exitAltKey)}/Ctrl+C`;
+  if (mode === "clock") {
+    return `Controls: ${font} Random Font | ${exit} Exit`;
+  }
+  const pause = `${keyTokenToLabel(keybindings.pauseKey)}/${keyTokenToLabel(keybindings.pauseAltKey)}`;
+  const restart = keyTokenToLabel(keybindings.restartKey);
   return `Controls: ${pause} Pause-Resume | ${restart} Restart | ${font} Random Font | ${exit} Exit`;
 }
 
@@ -656,13 +660,13 @@ function drawFrame({ mode, seconds, paused, config, done }) {
 
   const topLines = [];
   const centerLines = [];
-  const title = mode === "timer" ? "Timer" : "Stopwatch";
+  const title = MODE_TITLES[mode];
 
   if (config.showHeader) {
     topLines.push(`${title} | Font: ${config.font}`);
   }
   if (config.showControls) {
-    topLines.push(controlsHelpLine(config.keybindings));
+    topLines.push(controlsHelpLine(config.keybindings, mode));
   }
   if (topLines.length > 0) {
     topLines.push("");
@@ -1114,13 +1118,14 @@ function runNonInteractiveTimer(initialSeconds, tickRateMs) {
   }, tickRateMs);
 }
 
-function runClock({ mode, initialSeconds, config }) {
+function runLiveDisplay({ mode, initialSeconds, config }) {
   const isTimer = mode === "timer";
+  const isClock = mode === "clock";
   const tickRateMs = sanitizeTickRate(config.tickRateMs);
 
   if (!process.stdin.isTTY || !process.stdout.isTTY) {
     if (!isTimer) {
-      process.stderr.write("Stopwatch requires an interactive terminal (TTY).\n");
+      process.stderr.write(`${MODE_TITLES[mode]} requires an interactive terminal (TTY).\n`);
       process.exitCode = 1;
       return;
     }
@@ -1149,6 +1154,10 @@ function runClock({ mode, initialSeconds, config }) {
   }
 
   function getDisplaySeconds() {
+    if (isClock) {
+      const now = new Date();
+      return now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+    }
     const elapsed = getElapsedSeconds();
     if (isTimer) {
       return Math.max(0, baseSeconds - elapsed);
@@ -1272,7 +1281,7 @@ function runClock({ mode, initialSeconds, config }) {
     }
 
     if (token === config.keybindings.pauseKey || token === config.keybindings.pauseAltKey) {
-      if (!done) {
+      if (!done && !isClock) {
         togglePause();
         draw(true);
       }
@@ -1280,7 +1289,9 @@ function runClock({ mode, initialSeconds, config }) {
     }
 
     if (token === config.keybindings.restartKey) {
-      restart();
+      if (!isClock) {
+        restart();
+      }
       return;
     }
 
@@ -1436,12 +1447,15 @@ function printUsage() {
   process.stdout.write("Timer\n");
   process.stdout.write("  timer <number> <hr/hrs/min/sec> [<number> <hr/hrs/min/sec> ...]\n");
   process.stdout.write("  Example: timer 5 min 2 sec\n\n");
+  process.stdout.write("Clock\n");
+  process.stdout.write("  clock\n\n");
   process.stdout.write("Settings\n");
   process.stdout.write("  timer settings\n\n");
   process.stdout.write("Update\n");
   process.stdout.write("  timer update\n\n");
   process.stdout.write("Controls\n");
   process.stdout.write("  Defaults: p/Space Pause-Resume | r Restart | f Random Font | q/e/Ctrl+C Exit\n");
+  process.stdout.write("  Clock: f Random Font | q/e/Ctrl+C Exit\n");
   process.stdout.write("  Keybindings are customizable in `timer settings`.\n\n");
   process.stdout.write("Fonts\n");
   process.stdout.write("  timer font\n");
@@ -1453,7 +1467,12 @@ function printUsage() {
 
 function runStopwatch() {
   const config = readConfig();
-  runClock({ mode: "stopwatch", initialSeconds: 0, config });
+  runLiveDisplay({ mode: "stopwatch", initialSeconds: 0, config });
+}
+
+function runClock() {
+  const config = readConfig();
+  runLiveDisplay({ mode: "clock", initialSeconds: 0, config });
 }
 
 function runTimer(args) {
@@ -1543,12 +1562,13 @@ function runTimer(args) {
   }
 
   const config = readConfig();
-  runClock({ mode: "timer", initialSeconds: parsed.totalSeconds, config });
+  runLiveDisplay({ mode: "timer", initialSeconds: parsed.totalSeconds, config });
 }
 
 module.exports = {
   runTimer,
   runStopwatch,
+  runClock,
   runSettingsUI,
   printUsage,
   parseDurationArgs,

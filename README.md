@@ -1,6 +1,6 @@
 # CLI Timer
 
-A dead simple and customizable, easy to setup/use timer and stopwatch that runs in your terminal.
+A dead simple and customizable, easy to setup/use timer, stopwatch and clock that runs in your terminal.
 
 ## Install
 
@@ -17,6 +17,7 @@ Then use commands anywhere:
 ```bash
 timer 5 min
 stopwatch
+clock
 ```
 
 ## Usage
@@ -43,7 +44,17 @@ For example:
 timer 5 min 2 sec
 ```
 
-By default, timer and stopwatch output is centered in the terminal.
+### Clock
+
+To show the current time, run the following command:
+
+```bash
+clock
+```
+
+The clock shows 24-hour time (`HH:MM:SS`) and updates every second. It uses the same font and display settings as the timer and stopwatch.
+
+By default, timer, stopwatch and clock output is centered in the terminal.
 
 ### Update CLI Timer
 
@@ -62,9 +73,11 @@ timer update
 - `f`: Random font
 - `q`, `e` or `Ctrl+C`: Exit
 
+The clock only uses `f` and the exit keys, since it cannot be paused or restarted.
+
 ## Fonts
 
-You can view and set the ASCII font used for the timer and stopwatch display.
+You can view and set the ASCII font used for the timer, stopwatch and clock display.
 
 To list all available fonts:
 
